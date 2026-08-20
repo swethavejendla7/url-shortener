@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>URL Shortener</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f5f7;
+    --card: #ffffff;
+    --text: #1d1d1f;
+    --muted: #6e6e73;
+    --border: #d2d2d7;
+    --accent: #0071e3;
+    --error-bg: #fdecea;
+    --error-text: #b3261e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1e;
+      --card: #2c2c2e;
+      --text: #f5f5f7;
+      --muted: #98989d;
+      --border: #48484a;
+      --accent: #409cff;
+      --error-bg: #3a1f1d;
+      --error-text: #ff6961;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 48px 16px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  main { width: 100%; max-width: 780px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  p.subtitle { color: var(--muted); margin: 0 0 24px; font-size: 0.95rem; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  label { display: block; font-size: 0.85rem; font-weight: 600; margin: 12px 0 6px; }
+  label:first-child { margin-top: 0; }
+  input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.95rem;
+  }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .row { display: flex; gap: 12px; }
+  .row > div { flex: 1; }
+  button {
+    margin-top: 18px;
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
+  .result { margin-top: 16px; }
+  .short-link {
+    display: block;
+    padding: 12px;
+    border-radius: 8px;
+    background: var(--bg);
+    word-break: break-all;
+    font-size: 1rem;
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .actions { display: flex; gap: 8px; margin-top: 10px; }
+  .actions button {
+    margin-top: 0;
+    width: auto;
+    flex: 1;
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    font-weight: 500;
+    padding: 8px;
+  }
+  .error {
+    margin-top: 16px;
+    padding: 12px;
+    border-radius: 8px;
+    background: var(--error-bg);
+    color: var(--error-text);
+    font-size: 0.9rem;
+  }
+  .analytics { margin-top: 16px; font-size: 0.9rem; }
+  .analytics table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  .analytics th, .analytics td {
+    text-align: left;
+    padding: 6px 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .analytics th { color: var(--muted); font-weight: 600; font-size: 0.8rem; }
+  .hidden { display: none; }
+  .card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .card-head h2 { margin: 0; font-size: 1.05rem; }
+  .card-head button {
+    margin: 0;
+    width: auto;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    font-weight: 500;
+  }
+  #filter-input { margin-top: 10px; font-size: 0.9rem; padding: 8px 12px; }
+  .table-wrap { overflow-x: auto; margin-top: 12px; }
+  #links-table {
+    width: 100%;
+    min-width: 680px;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+  #links-table col.col-short { width: 14%; }
+  #links-table col.col-target { width: 38%; }
+  #links-table col.col-clicks { width: 8%; }
+  #links-table col.col-status { width: 11%; }
+  #links-table col.col-actions { width: 29%; }
+  #links-table th, #links-table td {
+    text-align: left;
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  #links-table th { color: var(--muted); font-weight: 600; font-size: 0.75rem; }
+  #links-table td.col-clicks, #links-table th.col-clicks { text-align: center; }
+  #links-table td.col-actions { white-space: nowrap; }
+  /* Full URL wraps onto extra lines within its column instead of being cut
+     off with an ellipsis — nothing about the link is hidden, it just grows
+     the row instead of the column. */
+  .wrap-cell { overflow-wrap: anywhere; word-break: break-word; }
+  .row-btn {
+    margin: 0 6px 0 0;
+    width: auto;
+    padding: 4px 10px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+  }
+  .row-btn:last-child { margin-right: 0; }
+  .row-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .detail-row td { background: var(--bg); }
+  footer { color: var(--muted); font-size: 0.8rem; text-align: center; margin-top: 24px; }
+  footer a { color: inherit; }
+</style>
+</head>
+<body>
+<main>
+  <h1>URL Shortener</h1>
+  <p class="subtitle">Paste a long link, get a short one back. This page is a thin convenience
+    layer over the JSON API at <code>/api/urls</code> — everything it does, you can also do with
+    <code>curl</code>.</p>
+
+  <div class="card">
+    <form id="create-form">
+      <label for="longUrl">Long URL</label>
+      <input id="longUrl" name="longUrl" type="url" placeholder="https://example.com/some/long/path" required />
+
+      <div class="row">
+        <div>
+          <label for="customAlias">Custom alias (optional)</label>
+          <input id="customAlias" name="customAlias" type="text" placeholder="my-link" />
+        </div>
+        <div>
+          <label for="expiresInDays">Expires in days (optional)</label>
+          <input id="expiresInDays" name="expiresInDays" type="number" min="1" max="3650" placeholder="7" />
+        </div>
+      </div>
+
+      <button type="submit" id="submit-btn">Shorten</button>
+    </form>
+
+    <div id="error" class="error hidden"></div>
+
+    <div id="result" class="result hidden">
+      <a id="short-link" class="short-link" target="_blank" rel="noopener"></a>
+      <div class="actions">
+        <button type="button" id="copy-btn">Copy link</button>
+        <button type="button" id="analytics-btn">View analytics</button>
+      </div>
+      <div id="analytics" class="analytics hidden"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2>Your links</h2>
+      <button type="button" id="refresh-btn">Refresh</button>
+    </div>
+    <input
+      type="text"
+      id="filter-input"
+      placeholder="Filter by short code or target URL&hellip;"
+      autocomplete="off"
+    />
+    <div class="table-wrap">
+      <table id="links-table">
+        <colgroup>
+          <col class="col-short" /><col class="col-target" /><col class="col-clicks" />
+          <col class="col-status" /><col class="col-actions" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Short link</th><th>Target</th><th class="col-clicks">Clicks</th><th>Status</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="links-tbody">
+          <tr><td colspan="5">Loading&hellip;</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>Full API reference, architecture, and engineering docs in the project's <a href="https://github.com" onclick="return false" title="see README.md in the project folder">README.md</a>.</footer>
+</main>
+
+<script>
+  const form = document.getElementById('create-form');
+  const submitBtn = document.getElementById('submit-btn');
+  const errorBox = document.getElementById('error');
+  const result = document.getElementById('result');
+  const shortLink = document.getElementById('short-link');
+  const copyBtn = document.getElementById('copy-btn');
+  const analyticsBtn = document.getElementById('analytics-btn');
+  const analyticsBox = document.getElementById('analytics');
+
+  const refreshBtn = document.getElementById('refresh-btn');
+  const filterInput = document.getElementById('filter-input');
+  const linksTbody = document.getElementById('links-tbody');
+  let lastLoadedLinks = [];
+
+  let currentShortCode = null;
+
+  function escapeHtml(str) {
+    return str.replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]));
+  }
+
+  function showError(message) {
+    errorBox.textContent = message;
+    errorBox.classList.remove('hidden');
+  }
+
+  function clearError() {
+    errorBox.classList.add('hidden');
+    errorBox.textContent = '';
+  }
+
+  function renderAnalytics(data) {
+    const rows = (entries) =>
+      entries.length
+        ? entries.map((e) => `<tr><td>${e.label}</td><td>${e.count}</td></tr>`).join('')
+        : '<tr><td colspan="2">no data yet</td></tr>';
+
+    analyticsBox.innerHTML = `
+      <p><strong>${data.totalClicks}</strong> total click${data.totalClicks === 1 ? '' : 's'}
+        &middot; last clicked: ${data.lastClickedAt ? new Date(data.lastClickedAt).toLocaleString() : 'never'}
+        &middot; status: ${data.isActive ? 'active' : 'deleted'}</p>
+      <table>
+        <thead><tr><th>Referrer</th><th>Clicks</th></tr></thead>
+        <tbody>${rows(data.breakdown.byReferrer)}</tbody>
+      </table>
+      <table>
+        <thead><tr><th>Browser</th><th>Clicks</th></tr></thead>
+        <tbody>${rows(data.breakdown.byBrowser)}</tbody>
+      </table>
+    `;
+    analyticsBox.classList.remove('hidden');
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearError();
+    result.classList.add('hidden');
+    analyticsBox.classList.add('hidden');
+    analyticsBox.innerHTML = '';
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Shortening...';
+
+    const body = { longUrl: document.getElementById('longUrl').value.trim() };
+    const alias = document.getElementById('customAlias').value.trim();
+    const days = document.getElementById('expiresInDays').value.trim();
+    if (alias) body.customAlias = alias;
+    if (days) body.expiresInDays = Number(days);
+
+    try {
+      const res = await fetch('/api/urls', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        const detail = data.details ? ' — ' + JSON.stringify(data.details) : '';
+        showError((data.message || 'request failed') + detail);
+        return;
+      }
+
+      currentShortCode = data.shortCode;
+      shortLink.href = data.shortUrl;
+      shortLink.textContent = data.shortUrl;
+      result.classList.remove('hidden');
+      form.reset();
+      loadLinks();
+    } catch (err) {
+      showError('Could not reach the server: ' + err.message);
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Shorten';
+    }
+  });
+
+  copyBtn.addEventListener('click', async () => {
+    await navigator.clipboard.writeText(shortLink.href);
+    copyBtn.textContent = 'Copied!';
+    setTimeout(() => (copyBtn.textContent = 'Copy link'), 1200);
+  });
+
+  analyticsBtn.addEventListener('click', async () => {
+    if (!currentShortCode) return;
+    try {
+      const res = await fetch(`/api/urls/${currentShortCode}/analytics`);
+      const data = await res.json();
+      if (!res.ok) {
+        showError(data.message || 'could not load analytics');
+        return;
+      }
+      renderAnalytics(data);
+    } catch (err) {
+      showError('Could not reach the server: ' + err.message);
+    }
+  });
+
+
+  function renderLinkRows(items) {
+    if (!items.length) {
+      const message = lastLoadedLinks.length
+        ? 'No links match your filter.'
+        : 'No links yet — create one above.';
+      linksTbody.innerHTML = `<tr><td colspan="5">${message}</td></tr>`;
+      return;
+    }
+
+    linksTbody.innerHTML = '';
+    for (const item of items) {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td class="wrap-cell"><a href="${escapeHtml(item.shortUrl)}" target="_blank" rel="noopener">${escapeHtml(item.shortCode)}</a></td>
+        <td class="wrap-cell" title="${escapeHtml(item.longUrl)}">${escapeHtml(item.longUrl)}</td>
+        <td class="col-clicks">${item.totalClicks}</td>
+        <td>active</td>
+        <td class="col-actions">
+          <button type="button" class="row-btn" data-action="copy" data-url="${escapeHtml(item.shortUrl)}">Copy</button>
+          <button type="button" class="row-btn" data-action="analytics" data-code="${escapeHtml(item.shortCode)}">Analytics</button>
+          <button type="button" class="row-btn" data-action="delete" data-code="${escapeHtml(item.shortCode)}">Delete</button>
+        </td>
+      `;
+      const detailRow = document.createElement('tr');
+      detailRow.className = 'detail-row hidden';
+      detailRow.innerHTML = '<td colspan="5"></td>';
+
+      linksTbody.appendChild(row);
+      linksTbody.appendChild(detailRow);
+    }
+  }
+
+  function applyFilter() {
+    const query = filterInput.value.trim().toLowerCase();
+    if (!query) {
+      renderLinkRows(lastLoadedLinks);
+      return;
+    }
+    renderLinkRows(
+      lastLoadedLinks.filter(
+        (item) =>
+          item.shortCode.toLowerCase().includes(query) ||
+          item.longUrl.toLowerCase().includes(query),
+      ),
+    );
+  }
+
+  async function loadLinks() {
+    linksTbody.innerHTML = '<tr><td colspan="5">Loading&hellip;</td></tr>';
+    try {
+      const res = await fetch('/api/urls');
+      const items = await res.json();
+      if (!res.ok) {
+        linksTbody.innerHTML = `<tr><td colspan="5">${escapeHtml(items.message || 'could not load links')}</td></tr>`;
+        return;
+      }
+      // Deleted links stay in the database (their analytics history is still
+      // reachable directly via the API), but this table only ever shows
+      // active ones — a deleted link's row disappears from view entirely
+      // rather than sticking around marked "deleted".
+      lastLoadedLinks = items.filter((item) => item.isActive);
+      applyFilter();
+    } catch (err) {
+      linksTbody.innerHTML = `<tr><td colspan="5">Could not reach the server: ${escapeHtml(err.message)}</td></tr>`;
+    }
+  }
+
+  filterInput.addEventListener('input', applyFilter);
+
+  linksTbody.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+    const code = btn.dataset.code;
+    const row = btn.closest('tr');
+    const detailRow = row.nextElementSibling;
+
+    if (btn.dataset.action === 'copy') {
+      await navigator.clipboard.writeText(btn.dataset.url);
+      const original = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => (btn.textContent = original), 1200);
+      return;
+    }
+
+    if (btn.dataset.action === 'analytics') {
+      const isOpen = !detailRow.classList.contains('hidden');
+      if (isOpen) {
+        detailRow.classList.add('hidden');
+        return;
+      }
+      detailRow.querySelector('td').innerHTML = 'Loading&hellip;';
+      detailRow.classList.remove('hidden');
+      try {
+        const res = await fetch(`/api/urls/${code}/analytics`);
+        const data = await res.json();
+        if (!res.ok) {
+          detailRow.querySelector('td').textContent = data.message || 'could not load analytics';
+          return;
+        }
+        const rows = (entries) =>
+          entries.length
+            ? entries.map((it) => `${escapeHtml(it.label)} (${it.count})`).join(', ')
+            : 'no data yet';
+        detailRow.querySelector('td').innerHTML = `
+          <strong>${data.totalClicks}</strong> total click${data.totalClicks === 1 ? '' : 's'}
+          &middot; last clicked: ${data.lastClickedAt ? new Date(data.lastClickedAt).toLocaleString() : 'never'}<br/>
+          Referrers: ${rows(data.breakdown.byReferrer)}<br/>
+          Browsers: ${rows(data.breakdown.byBrowser)}
+        `;
+      } catch (err) {
+        detailRow.querySelector('td').textContent = 'Could not reach the server: ' + err.message;
+      }
+      return;
+    }
+
+    if (btn.dataset.action === 'delete') {
+      if (!confirm(`Delete ${code}? It will stop redirecting.`)) return;
+      try {
+        const res = await fetch(`/api/urls/${code}`, { method: 'DELETE' });
+        if (res.status === 204 || res.status === 404) {
+          // Remove the row directly rather than re-fetching the whole list —
+          // faster, and keeps the cached list in sync for the filter box.
+          lastLoadedLinks = lastLoadedLinks.filter((item) => item.shortCode !== code);
+          row.remove();
+          detailRow.remove();
+          if (!linksTbody.children.length) {
+            renderLinkRows([]);
+          }
+        } else {
+          const data = await res.json();
+          alert(data.message || 'could not delete link');
+        }
+      } catch (err) {
+        alert('Could not reach the server: ' + err.message);
+      }
+    }
+  });
+
+  refreshBtn.addEventListener('click', loadLinks);
+  loadLinks();
+
+  // Auto-refresh so click counts and deletions (e.g. from another tab, or
+  // curl) show up without needing the manual Refresh button. Guarded against
+  // overlap in case a request is ever slower than the poll interval.
+  const AUTO_REFRESH_MS = 5000;
+  let isAutoRefreshing = false;
+  setInterval(async () => {
+    if (isAutoRefreshing) return;
+    isAutoRefreshing = true;
+    try {
+      await loadLinks();
+    } finally {
+      isAutoRefreshing = false;
+    }
+  }, AUTO_REFRESH_MS);
+</script>
+</body>
+</html>
