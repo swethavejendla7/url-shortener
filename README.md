@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # URL Shortener
 
 A URL shortener service with core CRUD/redirect APIs, click analytics (including a
@@ -308,6 +307,3 @@ Single-process only: the redirect cache and rate limiter are in-memory and don't
 across multiple instances of the service. No authentication — any caller can create, inspect, or
 delete any link. Both are documented in detail, with rationale, in the scenario docs and
 `ENGINEERING_SUMMARY.md` rather than silently left out.
-=======
-# url-shortener
->>>>>>> 7a7f4a24f4ed9f78b728b63041e8442a0374dcc0
